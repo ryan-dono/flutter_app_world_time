@@ -1,10 +1,13 @@
 import 'dart:convert';
-
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_app_login/landing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_app_login/Alumni.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_app_login/main.dart';
+import 'dart:developer';
 class LoginPage extends StatefulWidget{
   @override
   _LoginPageState createState() => _LoginPageState();
@@ -15,6 +18,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isLoading = false;
   bool _isValidate = false;
+  bool _isUserValid= false;
   @override
   void dispose() {
    usernameController.dispose();
@@ -38,6 +42,15 @@ class _LoginPageState extends State<LoginPage> {
             headerSection(),
             textSection(),
             buttonSection(),
+            Center(
+              child: Text(
+                _isUserValid ? "Your credentials might be wrong" : "",
+                style: TextStyle(
+                  color: Colors.red,
+                ),
+              ),
+            ),
+
           ],
         ),
       ),
@@ -86,7 +99,7 @@ class _LoginPageState extends State<LoginPage> {
       obscureText: true,
       style: TextStyle(color: Colors.white70),
       decoration: InputDecoration(
-          errorText: _isValidate ? "This field can't be empty": null,
+          errorText: _isValidate ? "This field can't be empty ": null,
         hintText: title,
         hintStyle: TextStyle(color: Colors.white70),
         icon: Icon(icon)
@@ -94,28 +107,47 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-SignIn (String username, String password) async{
 
-   Map data={
-     'username':username,
-     'password':password,
-   };
- var jsonData=null;
- SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
-var response = await http.post("https://reqres.in/api/login",body:data);
+ SignIn (String username, String password) async{
+      bool isValid;
+        var response = await Dio().get("https://sheltered-scrubland-74365.herokuapp.com/index");
+        List alumni = response.data;
+        var validalumni;
+      SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+
 if(response.statusCode==200)
   {
-    jsonData = json.decode(response.body);
-    setState(() {
-      _isLoading=false;
-      sharedPreferences.setString("token", jsonData['token']);
-      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (BuildContext context) => MainPage()), (Route<dynamic> route) => false);
+    for(int i=0; i<alumni.length;i++)
+      {
+        print(alumni[i]['alumniEmail']);
+        if(alumni[i]['alumniEmail'].toString()==username && alumni[i]['password']==password)
+          {
+            validalumni=alumni[i];
+            print("this guys");
+            print(i);
+            sharedPreferences.setString("user","valid");
+            Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context) => event(alumni: validalumni)));
+            _isUserValid=true;
+          }
+        else
+          {
 
-    });
+            setState(() {
+              _isLoading=false;
+              _isUserValid=true;
+              _isValidate=false;
+            });
+            print("not this guy");
+          }
+
+      }
   }
 else
    {
-     print(response.body);
+      setState(() {
+        _isLoading=false;
+        _isValidate=false;
+      });
    }
 }
 
@@ -147,6 +179,7 @@ else
           borderRadius: BorderRadius.circular(5.0)
         ),
         child: Text("Sign In",style: TextStyle(color: Colors.white70)),
+
       ),
 
     );
